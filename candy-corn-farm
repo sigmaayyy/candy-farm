@@ -1,0 +1,69 @@
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+
+local player = Players.LocalPlayer
+local folderName = "CandyCorns"
+
+local collecting = false
+local hopping = false
+
+local function getCandyCorns()
+    local folder = workspace:FindFirstChild(folderName)
+    local parts = {}
+
+    if folder then
+        for _, obj in ipairs(folder:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                table.insert(parts, obj)
+            end
+        end
+    end
+
+    return parts
+end
+
+local function collectCandyCorns()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local root = character:WaitForChild("HumanoidRootPart")
+
+    local parts = getCandyCorns()
+
+    for _, part in ipairs(parts) do
+        if not part:IsDescendantOf(workspace) then
+            continue
+        end
+
+        root.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+        task.wait(0.15)
+    end
+end
+
+local function serverHop()
+    if hopping then return end
+    hopping = true
+
+    local success, err = pcall(function()
+        TeleportService:Teleport(game.PlaceId, player)
+    end)
+
+    if not success then
+        warn("Server hop failed:", err)
+        task.wait(5)
+        hopping = false
+    end
+end
+
+while true do
+    if not hopping then
+        local parts = getCandyCorns()
+
+        if #parts > 0 then
+            collectCandyCorns()
+            task.wait(1)
+        else
+            serverHop()
+        end
+    end
+
+    task.wait(1)
+end
