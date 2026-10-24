@@ -1,3 +1,5 @@
+wait(1.2)
+
 local CORE = [=====[
 repeat task.wait() until game:IsLoaded()
 local Players = game:GetService("Players")
