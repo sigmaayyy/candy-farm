@@ -1,69 +1,91 @@
+local CORE = [=====[
+repeat task.wait() until game:IsLoaded()
 local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
-
 local player = Players.LocalPlayer
-local folderName = "CandyCorns"
+local queue = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport)
+local FLAG = "CandyCornFarm_Control.txt"
+local QUEUED = "local SELF = " .. string.format("%q", SELF) .. "\n" .. SELF
 
-local collecting = false
-local hopping = false
+local function enabled()
+    if type(isfile) == "function" and type(readfile) == "function" then
+        local ok, value = pcall(function()
+            return isfile(FLAG) and readfile(FLAG)
+        end)
+        if ok and value == "off" then
+            return false
+        end
+    end
+    return true
+end
 
-local function getCandyCorns()
-    local folder = workspace:FindFirstChild(folderName)
-    local parts = {}
+local function hop()
+    if not enabled() then return end
+    if queue then
+        pcall(queue, QUEUED)
+    end
+    while enabled() do
+        local ids = {}
+        pcall(function()
+            local raw = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=true")
+            local data = HttpService:JSONDecode(raw)
+            for _, server in ipairs(data.data or {}) do
+                if server.id ~= game.JobId and server.playing and server.maxPlayers and server.playing < server.maxPlayers then
+                    table.insert(ids, server.id)
+                end
+            end
+        end)
+        if #ids > 0 then
+            pcall(function()
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, ids[math.random(#ids)], player)
+            end)
+        else
+            pcall(function()
+                TeleportService:Teleport(game.PlaceId, player)
+            end)
+        end
+        task.wait(6)
+    end
+end
 
-    if folder then
+if not enabled() then return end
+
+local folder = workspace:WaitForChild("CandyCorns", 15)
+
+local function countParts()
+    local count = 0
+    if folder and folder.Parent then
         for _, obj in ipairs(folder:GetDescendants()) do
             if obj:IsA("BasePart") then
-                table.insert(parts, obj)
+                count = count + 1
             end
         end
     end
-
-    return parts
+    return count
 end
 
-local function collectCandyCorns()
+local function teleportCandyCorns()
     local character = player.Character or player.CharacterAdded:Wait()
     local root = character:WaitForChild("HumanoidRootPart")
-
-    local parts = getCandyCorns()
-
-    for _, part in ipairs(parts) do
-        if not part:IsDescendantOf(workspace) then
-            continue
+    for _, obj in ipairs(folder:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            obj.CFrame = root.CFrame
         end
-
-        root.CFrame = part.CFrame + Vector3.new(0, 3, 0)
-        task.wait(0.15)
     end
 end
 
-local function serverHop()
-    if hopping then return end
-    hopping = true
-
-    local success, err = pcall(function()
-        TeleportService:Teleport(game.PlaceId, player)
-    end)
-
-    if not success then
-        warn("Server hop failed:", err)
-        task.wait(5)
-        hopping = false
-    end
+if not folder or countParts() == 0 then
+    hop()
+    return
 end
 
-while true do
-    if not hopping then
-        local parts = getCandyCorns()
-
-        if #parts > 0 then
-            collectCandyCorns()
-            task.wait(1)
-        else
-            serverHop()
-        end
-    end
-
+local started = os.clock()
+while enabled() and countParts() > 0 and os.clock() - started < 90 do
+    pcall(teleportCandyCorns)
     task.wait(1)
 end
+hop()
+]=====]
+
+loadstring("local SELF = " .. string.format("%q", CORE) .. "\n" .. CORE)()
